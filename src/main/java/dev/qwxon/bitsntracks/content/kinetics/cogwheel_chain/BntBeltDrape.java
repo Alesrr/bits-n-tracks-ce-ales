@@ -80,7 +80,11 @@ public final class BntBeltDrape {
                 for (int probe = 1; probe < probes; probe++) {
                     Vec3 chord = runStart.add(along.scale((double)probe / probes));
                     double raw = surfaceOffset(level, base, pose, subLevel, chord, sag, restOffset);
-                    ground[probe] = raw <= NO_SURFACE ? NO_SURFACE : raw - restOffset + clearance;
+                    if (raw <= NO_SURFACE) {
+                        continue;
+                    }
+                    double lift = raw - restOffset;
+                    ground[probe] = lift <= 0.0 ? lift : lift + Math.min(lift, clearance);
                 }
             }
         }
