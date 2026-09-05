@@ -112,7 +112,7 @@ public final class BntBeltContacts {
         double[] alongAxis = new double[count];
         double[] radii = new double[count];
         int[] sides = new int[count];
-        float tension = BntBeltTension.DEFAULT;
+        float tension = BntBeltTension.at(level, controllerPos);
         double averageY = 0.0;
 
         for (int i = 0; i < count; i++) {
@@ -124,7 +124,6 @@ public final class BntBeltContacts {
                 .add(BntCogwheelPairing.seamOffset(state));
             if (level.getBlockEntity(nodePos) instanceof KineticBlockEntityPhysicsAccess access) {
                 centre = centre.add(access.bnt$getAlignmentOffsetX(), access.bnt$getAlignmentOffsetY(), access.bnt$getAlignmentOffsetZ());
-                tension = BntBeltTension.clamp(access.bnt$getBeltTension());
             }
             planarU[i] = BntChainGeometry.planarX(centre, axis);
             planarV[i] = BntChainGeometry.planarY(centre, axis);
