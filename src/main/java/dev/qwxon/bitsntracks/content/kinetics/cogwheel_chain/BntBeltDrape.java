@@ -30,6 +30,11 @@ public final class BntBeltDrape {
     private BntBeltDrape() {
     }
 
+    public static boolean canShapeRuns() {
+        return BntPhysicsTuning.isBeltDrapeEnabled()
+            || (BntPhysicsTuning.getBeltSagFraction() > 0.0 && BntPhysicsTuning.getBeltMaxSag() > 0.0);
+    }
+
     /** Point count for a run, from beltNodeSpacing, clamped to 2 up to 64. */
     public static int probeCount(double span) {
         double spacing = BntPhysicsTuning.getBeltNodeSpacing();

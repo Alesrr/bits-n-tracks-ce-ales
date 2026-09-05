@@ -23,8 +23,6 @@ import org.spongepowered.asm.mixin.Shadow;
     remap = false
 )
 public class CogwheelChainGeometryBuilderMixin {
-    private static final double BNT_SHAPE_THRESHOLD = 1.0 / 64.0;
-
     @Shadow
     private static List<RenderedChainPathNode> wrappedArcBetweenPoints(
         PathedCogwheelNode currentNode,
@@ -185,27 +183,19 @@ public class CogwheelChainGeometryBuilderMixin {
         List<RenderedChainPathNode> resultNodes, PathedCogwheelNode owner, PathedCogwheelNode next,
         Vec3 runStart, Vec3 runEnd
     ) {
-        Vec3 along = runEnd.subtract(runStart);
-        double span = along.length();
-        if (span < 1.0E-4) {
+        if (owner.localPos().equals(next.localPos()) || !BntBeltDrape.canShapeRuns()) {
             return;
         }
 
+        Vec3 along = runEnd.subtract(runStart);
+        double span = along.length();
         float tension = BntBeltTension.contextTension();
         double sag = BntBeltTension.sagDepth(span, tension);
         double restOffset = (BntBeltDrape.restOffset(owner) + BntBeltDrape.restOffset(next)) * 0.5;
-        int probes = BntBeltDrape.probeCount(span);
+        int probes = BntBeltDrape.probeCount(Math.sqrt(owner.localPos().distSqr(next.localPos())));
         boolean underside = (runStart.y + runEnd.y) * 0.5
             <= (BntChainMotion.liveCenter(owner).y + BntChainMotion.liveCenter(next).y) * 0.5;
         double[] offsets = BntBeltDrape.profile(runStart, along, probes, sag, tension, restOffset, underside);
-
-        double deepest = 0.0;
-        for (int probe = 1; probe < probes; probe++) {
-            deepest = Math.max(deepest, Math.abs(offsets[probe]));
-        }
-        if (deepest < BNT_SHAPE_THRESHOLD) {
-            return;
-        }
 
         Vec3 base = BntChainMotion.liveCenter(owner).add(BntBeltDrape.seamOffset(owner));
         for (int probe = 1; probe < probes; probe++) {
