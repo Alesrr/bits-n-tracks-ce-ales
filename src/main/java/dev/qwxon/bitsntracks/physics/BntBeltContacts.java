@@ -128,7 +128,7 @@ public final class BntBeltContacts {
             planarU[i] = BntChainGeometry.planarX(centre, axis);
             planarV[i] = BntChainGeometry.planarY(centre, axis);
             alongAxis[i] = BntBeltPath.axisCoord(centre, axis);
-            radii[i] = CogwheelSizeHelper.getChainRadius(state.getBlock());
+            radii[i] = CogwheelSizeHelper.getRadius(state.getBlock());
             sides[i] = node.side();
             averageY += centre.y;
         }
