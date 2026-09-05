@@ -4,6 +4,7 @@ import com.kipti.bnb.content.kinetics.cogwheel_chain.behaviour.CogwheelChainBeha
 import com.kipti.bnb.content.kinetics.cogwheel_chain.graph.CogwheelChain;
 import com.kipti.bnb.content.kinetics.cogwheel_chain.graph.PathedCogwheelNode;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
+import dev.qwxon.bitsntracks.access.BntChainGeometryRefresh;
 import dev.qwxon.bitsntracks.access.KineticBlockEntityPhysicsAccess;
 import dev.qwxon.bitsntracks.content.BntCogwheelPairing;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltDrape;
@@ -84,7 +85,9 @@ public final class BntBeltContacts {
                 continue;
             }
 
-            List<PathedCogwheelNode> nodes = chain.getChainPathCogwheelNodes();
+            List<PathedCogwheelNode> nodes = chain instanceof BntChainGeometryRefresh refreshable
+                ? refreshable.bnt$latchedBeltOrder()
+                : List.of();
             if (nodes.size() < 2) {
                 continue;
             }

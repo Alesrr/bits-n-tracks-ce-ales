@@ -92,6 +92,16 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
     }
 
     @Override
+    public List<PathedCogwheelNode> bnt$latchedBeltOrder() {
+        List<PathedCogwheelNode> nodes = this.cogwheelNodes;
+        BntChainGeometry.Layout layout = this.bnt$latched;
+        if (nodes == null || layout == null || layout.sides().length != nodes.size()) {
+            return List.of();
+        }
+        return BntChainGeometry.applyLayout(nodes, layout);
+    }
+
+    @Override
     public boolean bnt$isNodeEngaged(Level level, BlockPos controllerPos, BlockPos nodeLocalPos) {
         List<PathedCogwheelNode> nodes = this.cogwheelNodes;
         if (level == null || controllerPos == null || nodes == null || nodes.size() < 2) {

@@ -98,6 +98,10 @@ public final class BntChainGeometry {
         if (layout == null) {
             return pathNodes;
         }
+        return applyLayout(pathNodes, layout);
+    }
+
+    public static List<PathedCogwheelNode> applyLayout(List<PathedCogwheelNode> pathNodes, Layout layout) {
         List<PathedCogwheelNode> result = new ArrayList<>(layout.sequence().length);
         for (int index : layout.sequence()) {
             PathedCogwheelNode node = pathNodes.get(index);
