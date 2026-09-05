@@ -1,6 +1,7 @@
 package dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain;
 
 import com.kipti.bnb.content.kinetics.cogwheel_chain.graph.PathedCogwheelNode;
+import dev.qwxon.bitsntracks.client.BntClientCompat;
 import dev.qwxon.bitsntracks.content.BntCogwheelPairing;
 import dev.qwxon.bitsntracks.physics.BntPhysicsTuning;
 import dev.qwxon.bitsntracks.physics.BntRadiusProvider;
@@ -75,7 +76,7 @@ public final class BntBeltDrape {
             Vec3 base = Vec3.atLowerCornerOf(origin);
             SubLevel subLevel = Sable.HELPER.getContaining(level, base.add(runStart));
             if (subLevel != null) {
-                Pose3dc pose = subLevel.logicalPose();
+                Pose3dc pose = level.isClientSide ? BntClientCompat.drawnPose(subLevel) : subLevel.logicalPose();
                 double clearance = BntPhysicsTuning.getBeltSurfaceClearance();
                 for (int probe = 1; probe < probes; probe++) {
                     Vec3 chord = runStart.add(along.scale((double)probe / probes));

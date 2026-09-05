@@ -7,6 +7,9 @@ import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import dev.qwxon.bitsntracks.access.KineticBlockEntityPhysicsAccess;
 import dev.qwxon.bitsntracks.content.BntCogwheelPairing;
 import dev.qwxon.bitsntracks.content.HiddenCogwheelCompat;
+import dev.ryanhcode.sable.companion.math.Pose3dc;
+import dev.ryanhcode.sable.sublevel.ClientSubLevel;
+import dev.ryanhcode.sable.sublevel.SubLevel;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -16,6 +19,13 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
 
 public class BntClientCompat {
+    /** The pose the cogwheels are drawn against, which their suspension drop is measured in. */
+    public static Pose3dc drawnPose(SubLevel subLevel) {
+        return subLevel instanceof ClientSubLevel client
+            ? client.renderPose(getPartialTick())
+            : subLevel.logicalPose();
+    }
+
     public static double getVisualDrop(BlockEntity be, float partialTick) {
         return HiddenCogwheelCompat.getVisualDrop(be, partialTick);
     }
