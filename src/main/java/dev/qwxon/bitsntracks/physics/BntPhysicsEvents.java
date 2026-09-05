@@ -99,16 +99,11 @@ public final class BntPhysicsEvents {
                 }
             }
 
-            int shareCount = nearGround.size() + belt.size();
-            if (shareCount == 0) {
-                continue;
-            }
-
             if (!loaded.isEmpty()) {
                 solveTraction(subLevel, loaded, timeStep);
 
                 for (BntPhysicsEvents.WheelContact contact : loaded) {
-                    applyWheelForces(contact, shareCount, timeStep);
+                    applyWheelForces(contact, nearGround.size(), timeStep);
                 }
             }
 
@@ -116,7 +111,7 @@ public final class BntPhysicsEvents {
                 KineticBlockEntityPhysicsAccess carrier = (KineticBlockEntityPhysicsAccess)entry.getValue().get(0);
                 for (BntBeltContacts.BntBeltContact contact : belt) {
                     BntBeltContacts.assignCarrier(contact, carrier);
-                    BntBeltContacts.apply(contact, shareCount, timeStep);
+                    BntBeltContacts.apply(contact, belt.size(), timeStep);
                 }
             }
         }
