@@ -71,19 +71,17 @@ public final class BntBeltDrape {
 
         Level level = BntRadiusProvider.level();
         BlockPos origin = BntRadiusProvider.origin();
-        boolean probing = underside && level != null && origin != null && BntPhysicsTuning.isBeltDrapeEnabled();
-
-        SubLevel subLevel = null;
-        Pose3dc pose = null;
-        if (probing) {
+        if (underside && level != null && origin != null && BntPhysicsTuning.isBeltDrapeEnabled()) {
             Vec3 base = Vec3.atLowerCornerOf(origin);
-            subLevel = Sable.HELPER.getContaining(level, base.add(runStart));
-            pose = subLevel == null ? null : subLevel.logicalPose();
-            double clearance = BntPhysicsTuning.getBeltSurfaceClearance();
-            for (int probe = 1; probe < probes; probe++) {
-                Vec3 chord = runStart.add(along.scale((double)probe / probes));
-                double raw = surfaceOffset(level, base, pose, subLevel, chord, sag, restOffset);
-                ground[probe] = raw <= NO_SURFACE ? NO_SURFACE : raw - restOffset + clearance;
+            SubLevel subLevel = Sable.HELPER.getContaining(level, base.add(runStart));
+            if (subLevel != null) {
+                Pose3dc pose = subLevel.logicalPose();
+                double clearance = BntPhysicsTuning.getBeltSurfaceClearance();
+                for (int probe = 1; probe < probes; probe++) {
+                    Vec3 chord = runStart.add(along.scale((double)probe / probes));
+                    double raw = surfaceOffset(level, base, pose, subLevel, chord, sag, restOffset);
+                    ground[probe] = raw <= NO_SURFACE ? NO_SURFACE : raw - restOffset + clearance;
+                }
             }
         }
 
@@ -108,10 +106,8 @@ public final class BntBeltDrape {
     ) {
         double top = PROBE_ABOVE;
         double bottom = Math.min(-(sag + PROBE_BELOW), restOffset - PROBE_BELOW);
-        Vec3 blockTop = base.add(chord).add(0.0, top, 0.0);
-        Vec3 blockBottom = base.add(chord).add(0.0, bottom, 0.0);
-        Vec3 worldTop = pose == null ? blockTop : pose.transformPosition(blockTop);
-        Vec3 worldBottom = pose == null ? blockBottom : pose.transformPosition(blockBottom);
+        Vec3 worldTop = pose.transformPosition(base.add(chord).add(0.0, top, 0.0));
+        Vec3 worldBottom = pose.transformPosition(base.add(chord).add(0.0, bottom, 0.0));
 
         double reach = worldTop.distanceTo(worldBottom);
         if (reach < 1.0E-9) {
