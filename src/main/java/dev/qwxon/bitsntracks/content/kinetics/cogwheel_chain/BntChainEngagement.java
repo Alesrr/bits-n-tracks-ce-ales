@@ -260,6 +260,26 @@ public final class BntChainEngagement {
         return false;
     }
 
+    public static boolean hasSelfDrive(Level level, BlockPos controllerPos, List<PathedCogwheelNode> nodes) {
+        Set<BlockPos> chain = positionsOf(controllerPos, nodes);
+        for (BlockPos start : chain) {
+            if (!(level.getBlockEntity(start) instanceof KineticBlockEntity kinetic)
+                || kinetic.getTheoreticalSpeed() == 0.0F
+                || kinetic.source == null) {
+                continue;
+            }
+
+            BlockPos at = kinetic.source;
+            for (int step = 0; step <= chain.size() && at != null && chain.contains(at); step++) {
+                at = level.getBlockEntity(at) instanceof KineticBlockEntity next ? next.source : null;
+            }
+            if (at != null && chain.contains(at)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static boolean drivesTogether(Level level, BlockPos controllerPos, List<PathedCogwheelNode> nodes,
                                          boolean[] engaged) {
         boolean seen = false;
