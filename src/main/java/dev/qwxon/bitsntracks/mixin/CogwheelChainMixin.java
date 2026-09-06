@@ -65,6 +65,9 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
     private boolean bnt$sidesPending;
 
     @Unique
+    private BntChainGeometry.Layout bnt$appliedLayout;
+
+    @Unique
     private long bnt$latchedAt = Long.MIN_VALUE;
 
     @Unique
@@ -77,6 +80,7 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
                 this.bnt$engagedDisplacements = signature;
                 this.bnt$repairAttempted = false;
                 this.bnt$latch(level, restored);
+                this.bnt$appliedLayout = restored;
                 this.bnt$applySides(level, nodes, restored.sides());
                 return restored;
             }
@@ -178,18 +182,24 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
             return;
         }
 
-        BntChainGeometry.Layout layout = this.bnt$latchedLayout(level, controllerPos, nodes);
-        if (this.bnt$repairAttempted) {
-            return;
+        boolean[] applied = this.bnt$appliedEngagement(nodes.size());
+        if (applied != null) {
+            BntChainEngagement.parkDisengaged(level, controllerPos, nodes, applied);
         }
 
+        BntChainGeometry.Layout layout = this.bnt$latchedLayout(level, controllerPos, nodes);
         nodes = this.cogwheelNodes;
         if (layout == null || layout.sides().length != nodes.size()) {
             return;
         }
 
+        if (this.bnt$repairAttempted) {
+            return;
+        }
+
         boolean[] engaged = BntChainEngagement.engagement(layout, nodes.size());
-        if (!this.bnt$sidesPending && BntChainEngagement.drivesTogether(level, controllerPos, nodes, engaged)) {
+        boolean changed = this.bnt$sidesPending || applied == null || !Arrays.equals(applied, engaged);
+        if (!changed && BntChainEngagement.drivesTogether(level, controllerPos, nodes, engaged)) {
             return;
         }
 
@@ -198,7 +208,17 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
         BntChainEngagement.detach(level, positions);
         this.bnt$sidesPending = false;
         this.bnt$adoptSides(nodes, layout.sides());
+        this.bnt$appliedLayout = layout;
         BntChainEngagement.restore(level, positions);
+    }
+
+    /** The engagement the kinetic network was actually built with, which is what a stale speed belongs to. */
+    @Unique
+    private boolean[] bnt$appliedEngagement(int count) {
+        BntChainGeometry.Layout applied = this.bnt$appliedLayout;
+        return applied == null || applied.sides().length != count
+            ? null
+            : BntChainEngagement.engagement(applied, count);
     }
 
     @Inject(
@@ -210,6 +230,7 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
         this.bnt$latched = null;
         this.bnt$latchedAt = Long.MIN_VALUE;
         this.bnt$sidesPending = false;
+        this.bnt$appliedLayout = null;
         this.bnt$engagedDisplacements = null;
         this.bnt$restoredLayout = bnt$readLayout(tag, this.cogwheelNodes.size());
     }

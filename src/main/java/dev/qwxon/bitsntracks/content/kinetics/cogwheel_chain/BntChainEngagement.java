@@ -205,6 +205,37 @@ public final class BntChainEngagement {
         return positions;
     }
 
+    /**
+     * Parks a cogwheel the belt has left at a standstill.
+     * A disengaged node is unreachable from Create's propagation, so nothing else ever clears the speed it
+     * was left holding, and the moment it engages again that stale speed meets the live one; if the two
+     * disagree in sign, which is what reversing does, Create destroys the block.
+     * Only a node the chain itself was driving is parked, so a cogwheel fed from a shaft keeps its own drive.
+     */
+    public static void parkDisengaged(Level level, BlockPos controllerPos, List<PathedCogwheelNode> nodes,
+                                      boolean[] engaged) {
+        Set<BlockPos> chain = null;
+        for (int i = 0; i < nodes.size(); i++) {
+            if (engaged[i]
+                || !(level.getBlockEntity(controllerPos.offset(nodes.get(i).localPos())) instanceof KineticBlockEntity kinetic)
+                || kinetic.getTheoreticalSpeed() == 0.0F
+                || kinetic.source == null) {
+                continue;
+            }
+
+            if (chain == null) {
+                chain = positionsOf(controllerPos, nodes);
+            }
+            if (!chain.contains(kinetic.source)) {
+                continue;
+            }
+
+            kinetic.removeSource();
+            kinetic.setChanged();
+            kinetic.sendData();
+        }
+    }
+
     public static boolean drivesTogether(Level level, BlockPos controllerPos, List<PathedCogwheelNode> nodes,
                                          boolean[] engaged) {
         boolean seen = false;
