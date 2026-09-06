@@ -53,6 +53,8 @@ import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
 public final class BntPhysicsEvents {
+    private static final double NO_GROUND = 5.0;
+    private static final double CAST_HEADROOM = 0.0625;
     private static final double BLOCKS_PER_SECOND_PER_RPM_RADIUS = Math.PI * 2.0 / 60.0;
     private static final int TRACTION_ITERATIONS = 8;
     private static final double MAX_COMMANDED_YAW_RATE = 20.0;
@@ -591,11 +593,12 @@ public final class BntPhysicsEvents {
         double wheelRadius = CogwheelSizeHelper.getRadius(state.getBlock());
         double suspensionRest = CogwheelSizeHelper.getSuspensionRest(state.getBlock());
         Vec3 sampleAxis = JOMLConversion.toMojang(normalD).normalize();
-        double maxCastHeight = wheelRadius + suspensionRest + 1.5;
-        double minExtension = 5.0;
+        double maxCastHeight = suspensionRest + 0.5 + CAST_HEADROOM;
+        double minExtension = NO_GROUND;
         Direction minNormal = Direction.UP;
         SubLevel minHitSubLevel = null;
         BlockPos minInteractingBlock = null;
+        boolean blocked = false;
 
         for (double sampleOffset : getTerrainSampleOffsets(wheelRadius)) {
             Vec3 localPosO = wheelPosCenter.add(sampleAxis.scale(sampleOffset));
@@ -617,6 +620,16 @@ public final class BntPhysicsEvents {
                 }
 
                 SubLevel hitSubLevel = Sable.HELPER.getContaining(kbe.getLevel(), clipResult.getLocation());
+                if (clipResult.isInside()) {
+                    if (hitSubLevel != null && hitSubLevel != containingSubLevel && !ignoredSubLevels.contains(hitSubLevel)) {
+                        ignoredSubLevels.add(hitSubLevel);
+                        continue;
+                    }
+
+                    blocked = true;
+                    break;
+                }
+
                 Vec3 localHitPos = pose.transformPositionInverse(
                     hitSubLevel == null ? clipResult.getLocation() : hitSubLevel.logicalPose().transformPosition(clipResult.getLocation())
                 );
@@ -661,6 +674,14 @@ public final class BntPhysicsEvents {
 
                     ignoredSubLevels.add(hitSubLevel);
                 }
+            }
+        }
+
+        if (kbe instanceof KineticBlockEntityPhysicsAccess access) {
+            if (minInteractingBlock != null) {
+                access.bnt$setLastTerrainExtension(minExtension);
+            } else if (blocked && Double.isFinite(access.bnt$getLastTerrainExtension())) {
+                minExtension = access.bnt$getLastTerrainExtension();
             }
         }
 

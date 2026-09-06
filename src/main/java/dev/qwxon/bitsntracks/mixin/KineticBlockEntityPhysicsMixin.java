@@ -57,6 +57,8 @@ public abstract class KineticBlockEntityPhysicsMixin implements KineticBlockEnti
     @Unique
     private double bnt$lastExtension = 0.65;
     @Unique
+    private double bnt$lastTerrainExtension = Double.NaN;
+    @Unique
     private boolean bnt$liftedUp = false;
     @Unique
     private double bnt$maxAirExtension = 0.0;
@@ -195,6 +197,16 @@ public abstract class KineticBlockEntityPhysicsMixin implements KineticBlockEnti
     @Override
     public double bnt$getLerpedExtension(float partialTick) {
         return Mth.lerp(partialTick, this.bnt$lastExtension, this.bnt$extension);
+    }
+
+    @Override
+    public double bnt$getLastTerrainExtension() {
+        return this.bnt$lastTerrainExtension;
+    }
+
+    @Override
+    public void bnt$setLastTerrainExtension(double extension) {
+        this.bnt$lastTerrainExtension = extension;
     }
 
     @Override

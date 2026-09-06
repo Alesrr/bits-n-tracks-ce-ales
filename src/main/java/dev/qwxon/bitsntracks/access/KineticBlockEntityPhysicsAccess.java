@@ -13,6 +13,10 @@ public interface KineticBlockEntityPhysicsAccess {
 
     double bnt$getLerpedExtension(float var1);
 
+    double bnt$getLastTerrainExtension();
+
+    void bnt$setLastTerrainExtension(double var1);
+
     boolean bnt$isLiftedUp();
 
     void bnt$setLiftedUp(boolean var1);
