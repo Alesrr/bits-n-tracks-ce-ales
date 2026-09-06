@@ -59,6 +59,10 @@ public abstract class KineticBlockEntityPhysicsMixin implements KineticBlockEnti
     @Unique
     private double bnt$lastTerrainExtension = Double.NaN;
     @Unique
+    private long bnt$groundDropTick = Long.MIN_VALUE;
+    @Unique
+    private double bnt$groundDrop = 0.0;
+    @Unique
     private boolean bnt$liftedUp = false;
     @Unique
     private double bnt$maxAirExtension = 0.0;
@@ -207,6 +211,22 @@ public abstract class KineticBlockEntityPhysicsMixin implements KineticBlockEnti
     @Override
     public void bnt$setLastTerrainExtension(double extension) {
         this.bnt$lastTerrainExtension = extension;
+    }
+
+    @Override
+    public long bnt$getGroundDropTick() {
+        return this.bnt$groundDropTick;
+    }
+
+    @Override
+    public double bnt$getGroundDrop() {
+        return this.bnt$groundDrop;
+    }
+
+    @Override
+    public void bnt$setGroundDrop(long gameTime, double drop) {
+        this.bnt$groundDropTick = gameTime;
+        this.bnt$groundDrop = drop;
     }
 
     @Override

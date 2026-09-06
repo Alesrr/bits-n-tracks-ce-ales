@@ -28,6 +28,7 @@ import net.minecraft.world.phys.Vec3;
 
 public final class BntChainEngagement {
     private static final float DRIVE_TOLERANCE = 1.0E-3F;
+    private static final double DROP_STEP = 1.0 / 16.0;
 
     private BntChainEngagement() {
     }
@@ -44,13 +45,28 @@ public final class BntChainEngagement {
         double y = access.bnt$getAlignmentOffsetY();
         if (HiddenCogwheelCompat.isHiddenCogwheel(be.getBlockState())) {
             y += HiddenCogwheelCompat.getManualVisualVerticalOffset(be);
-            y -= quantise(HiddenCogwheelCompat.getVisualDrop(be, 1.0F));
+            y -= groundDrop(level, be, access);
         }
         return new Vec3(access.bnt$getAlignmentOffsetX(), y, access.bnt$getAlignmentOffsetZ());
     }
 
+    /** The drop a wheel is drawn at, held steady for a tick and sticky across ticks. */
+    private static double groundDrop(Level level, BlockEntity be, KineticBlockEntityPhysicsAccess access) {
+        long now = level.getGameTime();
+        boolean known = access.bnt$getGroundDropTick() != Long.MIN_VALUE;
+        double previous = access.bnt$getGroundDrop();
+        if (known && access.bnt$getGroundDropTick() == now) {
+            return previous;
+        }
+
+        double raw = HiddenCogwheelCompat.getVisualDrop(be, 1.0F);
+        double drop = known && Math.abs(raw - previous) <= DROP_STEP ? previous : quantise(raw);
+        access.bnt$setGroundDrop(now, drop);
+        return drop;
+    }
+
     private static double quantise(double travel) {
-        return Math.round(travel * 16.0) / 16.0;
+        return Math.round(travel / DROP_STEP) * DROP_STEP;
     }
 
     public static Direction routeSide(Level level, BlockPos worldPos) {

@@ -17,6 +17,12 @@ public interface KineticBlockEntityPhysicsAccess {
 
     void bnt$setLastTerrainExtension(double var1);
 
+    long bnt$getGroundDropTick();
+
+    double bnt$getGroundDrop();
+
+    void bnt$setGroundDrop(long var1, double var3);
+
     boolean bnt$isLiftedUp();
 
     void bnt$setLiftedUp(boolean var1);
