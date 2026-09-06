@@ -198,7 +198,10 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
         }
 
         boolean[] engaged = BntChainEngagement.engagement(layout, nodes.size());
-        boolean changed = this.bnt$sidesPending || applied == null || !Arrays.equals(applied, engaged);
+        boolean changed = this.bnt$sidesPending
+            || applied == null
+            || !Arrays.equals(applied, engaged)
+            || BntChainEngagement.hasSeveredDrive(level, controllerPos, nodes, engaged);
         if (!changed && BntChainEngagement.drivesTogether(level, controllerPos, nodes, engaged)) {
             return;
         }

@@ -236,6 +236,30 @@ public final class BntChainEngagement {
         }
     }
 
+    /**
+     * True when a cogwheel is still being driven through one the belt has left.
+     * Create only asks whether a source still exists and still turns, never whether it is still connected, so
+     * such a node keeps its speed for good: the track spins on with nothing driving it, and the next time the
+     * input is reversed that phantom rotation meets the real drive and destroys whatever sits between them.
+     */
+    public static boolean hasSeveredDrive(Level level, BlockPos controllerPos, List<PathedCogwheelNode> nodes,
+                                          boolean[] engaged) {
+        Map<BlockPos, Boolean> state = new HashMap<>();
+        for (int i = 0; i < nodes.size(); i++) {
+            state.put(controllerPos.offset(nodes.get(i).localPos()), engaged[i]);
+        }
+
+        for (int i = 0; i < nodes.size(); i++) {
+            if (level.getBlockEntity(controllerPos.offset(nodes.get(i).localPos())) instanceof KineticBlockEntity kinetic
+                && kinetic.getTheoreticalSpeed() != 0.0F
+                && kinetic.source != null
+                && Boolean.FALSE.equals(state.get(kinetic.source))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static boolean drivesTogether(Level level, BlockPos controllerPos, List<PathedCogwheelNode> nodes,
                                          boolean[] engaged) {
         boolean seen = false;
