@@ -80,10 +80,11 @@ public final class BntBeltTension {
         return Math.min(sag, BntPhysicsTuning.getBeltMaxSag() * slack);
     }
 
-    /** Parabolic droop, zero at both wheels and deepest at mid span. */
+    /** Droop that leaves both wheels along the run and is deepest at mid span. */
     public static double droopAt(double along, double sagDepth) {
         double centred = along * 2.0 - 1.0;
-        return sagDepth * (1.0 - centred * centred);
+        double arch = 1.0 - centred * centred;
+        return sagDepth * arch * arch;
     }
 
     /** Contact stiffness, scaled between 1 over range and range by tension. */
