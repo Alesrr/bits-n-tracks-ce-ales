@@ -3,6 +3,7 @@ package dev.qwxon.bitsntracks.mixin;
 import com.kipti.bnb.content.kinetics.cogwheel_chain.graph.CogwheelChainGeometryBuilder;
 import com.kipti.bnb.content.kinetics.cogwheel_chain.graph.PathedCogwheelNode;
 import com.kipti.bnb.content.kinetics.cogwheel_chain.graph.RenderedChainPathNode;
+import dev.qwxon.bitsntracks.access.BntRunShapeNode;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltDrape;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltTension;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntChainGeometry;
@@ -200,8 +201,10 @@ public class CogwheelChainGeometryBuilderMixin {
         Vec3 base = BntChainMotion.liveCenter(owner).add(BntBeltDrape.seamOffset(owner));
         for (int probe = 1; probe < probes; probe++) {
             Vec3 point = runStart.add(along.scale((double)probe / probes)).add(0.0, offsets[probe], 0.0);
-            resultNodes.add(new RenderedChainPathNode(
-                owner.localPos(), point.subtract(base), owner.rotationAxisVec()));
+            RenderedChainPathNode shapePoint = new RenderedChainPathNode(
+                owner.localPos(), point.subtract(base), owner.rotationAxisVec());
+            ((BntRunShapeNode)(Object)shapePoint).bnt$markRunShape();
+            resultNodes.add(shapePoint);
         }
     }
 
