@@ -47,9 +47,6 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
     private double[] bnt$builtDisplacements;
 
     @Unique
-    private boolean[] bnt$engagedNodes;
-
-    @Unique
     private double[] bnt$engagedDisplacements;
 
     @Unique
@@ -80,7 +77,6 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
                 this.bnt$engagedDisplacements = signature;
                 this.bnt$repairAttempted = false;
                 this.bnt$latch(level, restored);
-                this.bnt$appliedLayout = restored;
                 this.bnt$applySides(level, nodes, restored.sides());
                 return restored;
             }
@@ -164,12 +160,17 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
             return true;
         }
 
-        BntChainGeometry.Layout layout = this.bnt$latchedLayout(level, controllerPos, nodes);
-        this.bnt$engagedNodes = BntChainEngagement.engagement(layout, nodes.size());
+        this.bnt$latchedLayout(level, controllerPos, nodes);
+        nodes = this.cogwheelNodes;
+
+        boolean[] engagement = this.bnt$appliedEngagement(nodes.size());
+        if (engagement == null) {
+            return true;
+        }
 
         for (int i = 0; i < nodes.size(); i++) {
             if (nodes.get(i).localPos().equals(nodeLocalPos)) {
-                return this.bnt$engagedNodes[i];
+                return engagement[i];
             }
         }
         return true;
