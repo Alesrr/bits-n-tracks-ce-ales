@@ -12,7 +12,6 @@ import dev.qwxon.bitsntracks.access.KineticBlockEntityPhysicsAccess;
 import dev.qwxon.bitsntracks.client.BntClientCompat;
 import dev.qwxon.bitsntracks.index.BitsNTracksBlocks;
 import dev.qwxon.bitsntracks.physics.BntPhysicsEvents;
-import dev.qwxon.bitsntracks.physics.BntPhysicsTuning;
 import dev.qwxon.bitsntracks.physics.CogwheelSizeHelper;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
@@ -340,15 +339,7 @@ public final class HiddenCogwheelCompat {
     }
 
     public static double getManualVisualVerticalOffset(BlockEntity be) {
-        if (CogwheelSizeHelper.isLarge(be.getBlockState().getBlock())) {
-            return BntPhysicsTuning.getLargeVisualVerticalOffset();
-        } else if (CogwheelSizeHelper.isMedium(be.getBlockState().getBlock())) {
-            return BntPhysicsTuning.getMediumVisualVerticalOffset();
-        } else {
-            return CogwheelSizeHelper.isTiny(be.getBlockState().getBlock())
-                ? BntPhysicsTuning.getTinyVisualVerticalOffset()
-                : BntPhysicsTuning.getSmallVisualVerticalOffset();
-        }
+        return CogwheelSizeHelper.getVisualVerticalOffset(be.getBlockState().getBlock());
     }
 
     private static BlockState copyState(BlockState oldState, Block replacement) {

@@ -52,15 +52,16 @@ public final class BntBeltDrape {
         return BntCogwheelPairing.seamOffset(level.getBlockState(origin.offset(node.localPos())));
     }
 
-    /** Track radius minus collision radius, the depth a flat run rests at. */
+    /** Depth a flat run rests at, below the ground its wheels stand on. */
     public static double restOffset(PathedCogwheelNode node) {
         Level level = BntRadiusProvider.level();
         BlockPos origin = BntRadiusProvider.origin();
         if (level == null || origin == null) {
             return 0.0;
         }
-        double collision = CogwheelSizeHelper.getRadius(level.getBlockState(origin.offset(node.localPos())).getBlock());
-        return BntChainGeometry.trackRadius(node) - collision;
+        double drawnRest = CogwheelSizeHelper.getDrawnRestRadius(
+            level.getBlockState(origin.offset(node.localPos())).getBlock());
+        return BntChainGeometry.trackRadius(node) - drawnRest;
     }
 
     /** Run height against the straight line between its wheels, per sample. */

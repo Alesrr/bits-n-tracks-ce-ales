@@ -106,6 +106,19 @@ public final class CogwheelSizeHelper {
         };
     }
 
+    public static double getVisualVerticalOffset(Block block) {
+        return switch (sizeOf(block)) {
+            case LARGE -> BntPhysicsTuning.getLargeVisualVerticalOffset();
+            case MEDIUM -> BntPhysicsTuning.getMediumVisualVerticalOffset();
+            case TINY -> BntPhysicsTuning.getTinyVisualVerticalOffset();
+            case SMALL -> BntPhysicsTuning.getSmallVisualVerticalOffset();
+        };
+    }
+
+    public static double getDrawnRestRadius(Block block) {
+        return getRadius(block) + getVisualVerticalOffset(block) - getVerticalOffset(block);
+    }
+
     private enum Size {
         TINY,
         SMALL,
