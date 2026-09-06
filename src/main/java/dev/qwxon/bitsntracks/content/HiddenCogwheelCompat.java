@@ -269,8 +269,15 @@ public final class HiddenCogwheelCompat {
             : 0.0;
     }
 
+    /** Drop a wheel is drawn at, with the belt holding it up. */
+    public static double getHeldVisualDrop(BlockEntity be, float partialTick) {
+        return be instanceof KineticBlockEntity kinetic && isPhysicsEnabled(be)
+            ? BntPhysicsEvents.getHeldRenderExtension(kinetic, partialTick)
+            : 0.0;
+    }
+
     public static double getVisualVerticalTranslation(BlockEntity be, float partialTick) {
-        return be == null ? 0.0 : getManualVisualVerticalOffset(be) - getVisualDrop(be, partialTick);
+        return be == null ? 0.0 : getManualVisualVerticalOffset(be) - getHeldVisualDrop(be, partialTick);
     }
 
     public static Vec3 getModelTranslation(BlockEntity be, float partialTick) {

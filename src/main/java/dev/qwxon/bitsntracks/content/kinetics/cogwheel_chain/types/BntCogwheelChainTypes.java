@@ -23,23 +23,36 @@ public class BntCogwheelChainTypes {
             .renderTexture(BitsNTracks.asResource("textures/block/industrial_belt.png"))
             .permitsAxisChange(false)
             .breakEffectsBlock(() -> Blocks.CHAIN)
-            .setCogwheelPredicate(
-                block -> {
-                    ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
-                    String path = id.getPath();
-                    return path.equals("large_industrial_flanged_cogwheel")
-                        || path.equals("medium_industrial_flanged_cogwheel")
-                        || path.equals("large_hidden_flanged_cogwheel")
-                        || path.equals("industrial_flanged_cogwheel")
-                        || path.equals("small_hidden_flanged_cogwheel")
-                        || path.equals("medium_hidden_flanged_cogwheel")
-                        || id.toString().equals("dndecor:industrial_cogwheel")
-                        || id.toString().equals("dndecor:medium_industrial_cogwheel")
-                        || id.toString().equals("dndecor:large_industrial_cogwheel");
-                }
-            )
+            .setCogwheelPredicate(BntCogwheelChainTypes::isFlangedDriveCogwheel)
             .build()
     );
+
+    public static final DeferredHolder<CogwheelChainType, CogwheelChainType> TANK_TREAD_CHAIN = REGISTRY.register(
+        "tank_tread",
+        () -> new Builder()
+            .relatedItem(BitsNTracksItems.TANK_TREAD::get)
+            .renderType(ChainRenderInfo.BELT)
+            .renderTexture(BitsNTracks.asResource("textures/block/tank_tread.png"))
+            .permitsAxisChange(false)
+            .breakEffectsBlock(() -> Blocks.CHAIN)
+            .setCogwheelPredicate(BntCogwheelChainTypes::isFlangedDriveCogwheel)
+            .build()
+    );
+
+    /** Cogwheels a belt or tread may be strung on. */
+    public static boolean isFlangedDriveCogwheel(net.minecraft.world.level.block.Block block) {
+        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
+        String path = id.getPath();
+        return path.equals("large_industrial_flanged_cogwheel")
+            || path.equals("medium_industrial_flanged_cogwheel")
+            || path.equals("large_hidden_flanged_cogwheel")
+            || path.equals("industrial_flanged_cogwheel")
+            || path.equals("small_hidden_flanged_cogwheel")
+            || path.equals("medium_hidden_flanged_cogwheel")
+            || id.toString().equals("dndecor:industrial_cogwheel")
+            || id.toString().equals("dndecor:medium_industrial_cogwheel")
+            || id.toString().equals("dndecor:large_industrial_cogwheel");
+    }
 
     public static void init(IEventBus bus) {
         REGISTRY.register(bus);

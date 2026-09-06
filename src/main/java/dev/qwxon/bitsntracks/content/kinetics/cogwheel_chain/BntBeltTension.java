@@ -18,7 +18,10 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 public final class BntBeltTension {
     public static final float MIN = 0.0F;
     public static final float MAX = 1.0F;
-    public static final float DEFAULT = 0.5F;
+    public static final float DEFAULT = MAX;
+
+    /** Arc surplus of the droop shape, from integrating its slope over the span. */
+    private static final double SAG_ARC = 105.0 / 256.0;
 
     private BntBeltTension() {
     }
@@ -35,26 +38,28 @@ public final class BntBeltTension {
 
     /** Applies one lever step across the chain and returns the new value. */
     public static float step(Level level, BlockPos pos, boolean tighten) {
-        Set<BlockPos> nodes = chainPositions(level, pos);
         float step = (float)BntPhysicsTuning.getBeltTensionStep();
         float target = clamp(at(level, pos) + (tighten ? step : -step));
-
-        for (BlockPos nodePos : nodes) {
-            BlockEntity be = level.getBlockEntity(nodePos);
-            if (be instanceof KineticBlockEntity kinetic && be instanceof KineticBlockEntityPhysicsAccess access) {
-                access.bnt$setBeltTension(target);
-                kinetic.setChanged();
-                kinetic.sendData();
-            }
-        }
+        apply(level, pos, target);
         return target;
     }
 
     public static void reset(Level level, BlockPos pos) {
+        apply(level, pos, DEFAULT);
+    }
+
+    /** Writes a tension across the chain and rebuilds the loop at that many links. */
+    public static void apply(Level level, BlockPos pos, float tension) {
+        write(level, pos, tension, BntBeltLinks.relatch(level, controllerPos(level, pos), tension));
+    }
+
+    /** Writes a tension and an already solved link count across the chain. */
+    public static void write(Level level, BlockPos pos, float tension, int links) {
         for (BlockPos nodePos : chainPositions(level, pos)) {
             BlockEntity be = level.getBlockEntity(nodePos);
             if (be instanceof KineticBlockEntity kinetic && be instanceof KineticBlockEntityPhysicsAccess access) {
-                access.bnt$setBeltTension(DEFAULT);
+                access.bnt$setBeltTension(tension);
+                access.bnt$setBeltLinks(links);
                 kinetic.setChanged();
                 kinetic.sendData();
             }
@@ -73,11 +78,12 @@ public final class BntBeltTension {
             : DEFAULT;
     }
 
-    /** Hang at mid span, from span length and slack, capped by beltMaxSag. */
-    public static double sagDepth(double spanLength, float tension) {
-        double slack = 1.0 - clamp(tension);
-        double sag = spanLength * BntPhysicsTuning.getBeltSagFraction() * slack;
-        return Math.min(sag, BntPhysicsTuning.getBeltMaxSag() * slack);
+    /** Hang at mid span that spends exactly the surplus length given to this run. */
+    public static double sagFromSurplus(double spanLength, double surplus) {
+        if (spanLength <= 1.0E-6 || surplus <= 0.0) {
+            return 0.0;
+        }
+        return Math.min(Math.sqrt(SAG_ARC * spanLength * surplus), BntPhysicsTuning.getBeltMaxSag());
     }
 
     /** Droop that leaves both wheels along the run and is deepest at mid span. */
@@ -96,6 +102,15 @@ public final class BntBeltTension {
 
     public static double gripScale(float tension) {
         return BntPhysicsTuning.getBeltGrip() * Mth.lerp(clamp(tension), 0.5, 1.0);
+    }
+
+    /** Block that owns the chain this position belongs to, or the position itself. */
+    public static BlockPos controllerPos(Level level, BlockPos pos) {
+        CogwheelChainBehaviour behaviour = behaviour(level.getBlockEntity(pos));
+        if (behaviour == null || behaviour.getControlledChain() != null || behaviour.getControllerOffset() == null) {
+            return pos;
+        }
+        return pos.offset(behaviour.getControllerOffset());
     }
 
     public static Set<BlockPos> chainPositions(Level level, BlockPos pos) {

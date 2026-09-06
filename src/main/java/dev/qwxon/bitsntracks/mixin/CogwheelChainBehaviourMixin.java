@@ -10,6 +10,7 @@ import dev.qwxon.bitsntracks.access.KineticBlockEntityPhysicsAccess;
 import dev.qwxon.bitsntracks.access.TrackModelBehaviourAccess;
 import dev.qwxon.bitsntracks.content.BntFlangedCogwheelBlock;
 import dev.qwxon.bitsntracks.content.HiddenCogwheelCompat;
+import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltLinks;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntChainEngagement;
 import dev.qwxon.bitsntracks.index.BitsNTracksBlocks;
 import net.minecraft.core.BlockPos;
@@ -161,6 +162,7 @@ public abstract class CogwheelChainBehaviourMixin implements TrackModelBehaviour
 
         if (self.getControlledChain() instanceof BntChainGeometryRefresh chain) {
             chain.bnt$verifyKinetics(level, self.getBlockEntity().getBlockPos());
+            BntBeltLinks.latchIfUnset(level, self.getBlockEntity().getBlockPos());
         }
     }
 
