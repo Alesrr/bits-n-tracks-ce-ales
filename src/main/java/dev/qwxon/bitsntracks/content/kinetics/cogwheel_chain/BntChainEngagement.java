@@ -10,6 +10,7 @@ import dev.qwxon.bitsntracks.access.BntChainGeometryRefresh;
 import dev.qwxon.bitsntracks.access.KineticBlockEntityPhysicsAccess;
 import dev.qwxon.bitsntracks.content.HiddenCogwheelCompat;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -29,6 +30,9 @@ import net.minecraft.world.phys.Vec3;
 public final class BntChainEngagement {
     private static final float DRIVE_TOLERANCE = 1.0E-3F;
     private static final double DROP_STEP = 1.0 / 16.0;
+
+    /** How long a settled belt layout is held before suspension travel is allowed to redraw it. */
+    public static final long LATCH_DWELL_TICKS = 20L;
 
     private BntChainEngagement() {
     }
@@ -190,11 +194,15 @@ public final class BntChainEngagement {
     }
 
     public static void rebuild(Level level, BlockPos controllerPos, List<PathedCogwheelNode> nodes) {
+        rebuild(level, positionsOf(controllerPos, nodes));
+    }
+
+    public static Set<BlockPos> positionsOf(BlockPos controllerPos, List<PathedCogwheelNode> nodes) {
         Set<BlockPos> positions = new HashSet<>();
         for (PathedCogwheelNode node : nodes) {
             positions.add(controllerPos.offset(node.localPos()));
         }
-        rebuild(level, positions);
+        return positions;
     }
 
     public static boolean drivesTogether(Level level, BlockPos controllerPos, List<PathedCogwheelNode> nodes,
@@ -222,6 +230,16 @@ public final class BntChainEngagement {
     }
 
     private static void rebuild(Level level, Set<BlockPos> nodes) {
+        detach(level, nodes);
+        restore(level, nodes);
+    }
+
+    /**
+     * Brings the whole chain to a standstill before anything about it is allowed to change.
+     * The detach pass has to run while the sides still match the speeds Create has stored, because it
+     * propagates, and a propagation that meets a flipped side against a stale speed destroys the block.
+     */
+    public static void detach(Level level, Collection<BlockPos> nodes) {
         for (BlockPos nodePos : nodes) {
             if (level.getBlockEntity(nodePos) instanceof KineticBlockEntity kinetic) {
                 kinetic.detachKinetics();
@@ -230,6 +248,14 @@ public final class BntChainEngagement {
         for (BlockPos nodePos : nodes) {
             if (level.getBlockEntity(nodePos) instanceof KineticBlockEntity kinetic) {
                 kinetic.removeSource();
+            }
+        }
+    }
+
+    /** Asks Create to work the chain's speeds out again from scratch. */
+    public static void restore(Level level, Collection<BlockPos> nodes) {
+        for (BlockPos nodePos : nodes) {
+            if (level.getBlockEntity(nodePos) instanceof KineticBlockEntity kinetic) {
                 kinetic.updateSpeed = true;
                 kinetic.setChanged();
                 kinetic.sendData();

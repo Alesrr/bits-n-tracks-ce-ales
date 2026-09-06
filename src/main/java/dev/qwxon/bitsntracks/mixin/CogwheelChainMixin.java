@@ -13,6 +13,7 @@ import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntChainMotion;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
@@ -61,6 +62,12 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
     private BntChainGeometry.Layout bnt$restoredLayout;
 
     @Unique
+    private boolean bnt$sidesPending;
+
+    @Unique
+    private long bnt$latchedAt = Long.MIN_VALUE;
+
+    @Unique
     private BntChainGeometry.Layout bnt$latchedLayout(Level level, BlockPos controllerPos, List<PathedCogwheelNode> nodes) {
         double[] signature = BntChainEngagement.signature(level, controllerPos, nodes);
         BntChainGeometry.Layout restored = this.bnt$restoredLayout;
@@ -69,8 +76,8 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
             if (BntChainEngagement.stillHolds(level, controllerPos, nodes, restored)) {
                 this.bnt$engagedDisplacements = signature;
                 this.bnt$repairAttempted = false;
-                this.bnt$latched = restored;
-                this.bnt$adoptSides(nodes, restored.sides());
+                this.bnt$latch(level, restored);
+                this.bnt$applySides(level, nodes, restored.sides());
                 return restored;
             }
         }
@@ -78,17 +85,62 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
         if (this.bnt$latched != null
             && this.bnt$latched.sides().length == nodes.size()
             && Arrays.equals(signature, this.bnt$engagedDisplacements)
-            && BntChainEngagement.stillHolds(level, controllerPos, nodes, this.bnt$latched)) {
+            && (this.bnt$withinDwell(level)
+                || BntChainEngagement.stillHolds(level, controllerPos, nodes, this.bnt$latched))) {
             return this.bnt$latched;
         }
 
         this.bnt$engagedDisplacements = signature;
         this.bnt$repairAttempted = false;
-        this.bnt$latched = BntChainEngagement.layout(level, controllerPos, nodes);
+        this.bnt$latch(level, BntChainEngagement.layout(level, controllerPos, nodes));
         if (this.bnt$latched != null) {
-            this.bnt$adoptSides(nodes, this.bnt$latched.sides());
+            this.bnt$applySides(level, nodes, this.bnt$latched.sides());
         }
         return this.bnt$latched;
+    }
+
+    @Unique
+    private void bnt$latch(Level level, BntChainGeometry.Layout layout) {
+        this.bnt$latched = layout;
+        this.bnt$latchedAt = level == null ? Long.MIN_VALUE : level.getGameTime();
+    }
+
+    @Unique
+    private boolean bnt$withinDwell(Level level) {
+        return level != null
+            && this.bnt$latchedAt != Long.MIN_VALUE
+            && level.getGameTime() - this.bnt$latchedAt < BntChainEngagement.LATCH_DWELL_TICKS;
+    }
+
+    /**
+     * A side is the direction Create drives that cogwheel in, so on the server it may only change while
+     * the chain is stopped. The client has no network to damage and takes it straight away.
+     */
+    @Unique
+    private void bnt$applySides(Level level, List<PathedCogwheelNode> nodes, int[] sides) {
+        if (!bnt$sidesDiffer(nodes, sides)) {
+            return;
+        }
+
+        if (level == null || level.isClientSide) {
+            this.bnt$adoptSides(nodes, sides);
+        } else {
+            this.bnt$sidesPending = true;
+        }
+    }
+
+    @Unique
+    private static boolean bnt$sidesDiffer(List<PathedCogwheelNode> nodes, int[] sides) {
+        if (sides.length != nodes.size()) {
+            return false;
+        }
+
+        for (int i = 0; i < nodes.size(); i++) {
+            if (nodes.get(i).side() != sides[i]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -132,13 +184,21 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
         }
 
         nodes = this.cogwheelNodes;
+        if (layout == null || layout.sides().length != nodes.size()) {
+            return;
+        }
+
         boolean[] engaged = BntChainEngagement.engagement(layout, nodes.size());
-        if (BntChainEngagement.drivesTogether(level, controllerPos, nodes, engaged)) {
+        if (!this.bnt$sidesPending && BntChainEngagement.drivesTogether(level, controllerPos, nodes, engaged)) {
             return;
         }
 
         this.bnt$repairAttempted = true;
-        BntChainEngagement.rebuild(level, controllerPos, nodes);
+        Set<BlockPos> positions = BntChainEngagement.positionsOf(controllerPos, nodes);
+        BntChainEngagement.detach(level, positions);
+        this.bnt$sidesPending = false;
+        this.bnt$adoptSides(nodes, layout.sides());
+        BntChainEngagement.restore(level, positions);
     }
 
     @Inject(
@@ -148,6 +208,8 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
     private void bnt$forgetBuiltGeometry(CompoundTag tag, CallbackInfo ci) {
         this.bnt$builtDisplacements = null;
         this.bnt$latched = null;
+        this.bnt$latchedAt = Long.MIN_VALUE;
+        this.bnt$sidesPending = false;
         this.bnt$engagedDisplacements = null;
         this.bnt$restoredLayout = bnt$readLayout(tag, this.cogwheelNodes.size());
     }
