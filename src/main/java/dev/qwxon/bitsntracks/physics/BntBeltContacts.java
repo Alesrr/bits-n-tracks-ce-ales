@@ -8,7 +8,9 @@ import dev.qwxon.bitsntracks.access.BntChainGeometryRefresh;
 import dev.qwxon.bitsntracks.access.KineticBlockEntityPhysicsAccess;
 import dev.qwxon.bitsntracks.content.BntCogwheelPairing;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltDrape;
+import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltLinks;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltPath;
+import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltSlack;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltTension;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntChainGeometry;
 import dev.ryanhcode.sable.Sable;
@@ -19,6 +21,7 @@ import dev.ryanhcode.sable.mixinterface.clip_overwrite.ClipContextExtension;
 import dev.ryanhcode.sable.companion.math.JOMLConversion;
 import dev.ryanhcode.sable.companion.math.Pose3d;
 import dev.ryanhcode.sable.physics.config.block_properties.PhysicsBlockPropertyHelper;
+import dev.ryanhcode.sable.physics.config.dimension_physics.DimensionPhysicsData;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import dev.ryanhcode.sable.sublevel.SubLevel;
 import java.util.ArrayList;
@@ -58,17 +61,34 @@ public final class BntBeltContacts {
         private float tension;
     }
 
-    public static List<BntBeltContact> build(
+    /** A stretch of track hanging off the wheels, carrying its own weight. */
+    public static final class BntBeltWeight {
+        private KineticBlockEntityPhysicsAccess carrier;
+        private ServerSubLevel subLevel;
+        private Vector3d forcePoint;
+        private double mass;
+    }
+
+    /** What a loop puts on the hull this tick. */
+    public record BntBeltLoads(List<BntBeltContact> contacts, List<BntBeltWeight> weights) {
+        public boolean isEmpty() {
+            return this.contacts.isEmpty() && this.weights.isEmpty();
+        }
+    }
+
+    public static BntBeltLoads build(
         ServerSubLevel subLevel, List<KineticBlockEntity> wheels, Level level
     ) {
         List<BntBeltContact> contacts = new ArrayList<>();
+        List<BntBeltWeight> weights = new ArrayList<>();
+        BntBeltLoads loads = new BntBeltLoads(contacts, weights);
         if (!BntPhysicsTuning.isBeltCollisionEnabled() || wheels.isEmpty()) {
-            return contacts;
+            return loads;
         }
 
         MassData massData = subLevel.getMassTracker();
         if (massData == null || massData.isInvalid() || massData.getCenterOfMass() == null) {
-            return contacts;
+            return loads;
         }
 
         Pose3d pose = subLevel.logicalPose();
@@ -92,14 +112,14 @@ public final class BntBeltContacts {
                 continue;
             }
 
-            collectSpans(contacts, level, subLevel, pose, massData, controllerPos, nodes);
+            collectSpans(loads, level, subLevel, pose, massData, controllerPos, nodes, wheel.getSpeed());
         }
-        return contacts;
+        return loads;
     }
 
     private static void collectSpans(
-        List<BntBeltContact> contacts, Level level, ServerSubLevel subLevel, Pose3d pose,
-        MassData massData, BlockPos controllerPos, List<PathedCogwheelNode> nodes
+        BntBeltLoads loads, Level level, ServerSubLevel subLevel, Pose3d pose,
+        MassData massData, BlockPos controllerPos, List<PathedCogwheelNode> nodes, float speed
     ) {
         Axis axis = BntChainGeometry.sharedAxis(nodes);
         if (axis == null || axis == Axis.Y) {
@@ -134,18 +154,32 @@ public final class BntBeltContacts {
         }
         averageY /= count;
 
+        double[][] runs = new double[count][];
+        double[] runLengths = new double[count];
         for (int i = 0; i < count; i++) {
             int next = (i + 1) % count;
             if (next == i) {
                 continue;
             }
-
-            double[] run = BntBeltPath.tangent(
+            runs[i] = BntBeltPath.tangent(
                 planarU[i], planarV[i], sides[i] * radii[i],
                 planarU[next], planarV[next], sides[next] * radii[next]);
+            runLengths[i] = runs[i] == null ? 0.0 : runs[i][0];
+        }
+
+        int links = BntBeltLinks.resolve(level, controllerPos, tension);
+        double surplus = BntBeltLinks.surplus(links, tension,
+            BntBeltLinks.tautLength(nodes), BntBeltLinks.liveTautLength(level, controllerPos, nodes));
+        double[] slack = BntBeltSlack.distribute(
+            runLengths, surplus, BntBeltSlack.tightRun(nodes, speed), speed);
+        double massPerBlock = BntPhysicsTuning.getBeltMassPerBlock();
+
+        for (int i = 0; i < count; i++) {
+            double[] run = runs[i];
             if (run == null || run[0] < 1.0E-4) {
                 continue;
             }
+            int next = (i + 1) % count;
 
             double startU = planarU[i] + run[1];
             double startV = planarV[i] + run[2];
@@ -154,12 +188,11 @@ public final class BntBeltContacts {
 
             Vec3 midpoint = BntBeltPath.fromPlanar(
                 (startU + endU) * 0.5, (startV + endV) * 0.5, (alongAxis[i] + alongAxis[next]) * 0.5, axis);
-            if (midpoint.y > averageY) {
-                continue;
-            }
+            boolean underside = midpoint.y <= averageY;
 
             int samples = BntBeltDrape.probeCount(run[0]);
-            double sag = BntBeltTension.sagDepth(run[0], tension);
+            double sag = BntBeltTension.sagFromSurplus(run[0], slack[i]);
+            double segmentMass = massPerBlock * run[0] / samples;
             for (int sample = 0; sample < samples; sample++) {
                 double along = (sample + 0.5) / samples;
                 Vec3 point = BntBeltPath.fromPlanar(
@@ -169,9 +202,17 @@ public final class BntBeltContacts {
                     axis);
                 point = point.subtract(0.0, BntBeltTension.droopAt(along, sag), 0.0);
 
-                BntBeltContact contact = sample(level, subLevel, pose, massData, point, tension);
+                BntBeltContact contact = underside
+                    ? sample(level, subLevel, pose, massData, point, tension)
+                    : null;
                 if (contact != null) {
-                    contacts.add(contact);
+                    loads.contacts().add(contact);
+                } else if (segmentMass > 0.0) {
+                    BntBeltWeight weight = new BntBeltWeight();
+                    weight.subLevel = subLevel;
+                    weight.forcePoint = new Vector3d(point.x, point.y, point.z);
+                    weight.mass = segmentMass;
+                    loads.weights().add(weight);
                 }
             }
         }
@@ -266,6 +307,31 @@ public final class BntBeltContacts {
 
     public static void assignCarrier(BntBeltContact contact, KineticBlockEntityPhysicsAccess carrier) {
         contact.carrier = carrier;
+    }
+
+    public static void assignCarrier(BntBeltWeight weight, KineticBlockEntityPhysicsAccess carrier) {
+        weight.carrier = carrier;
+    }
+
+    /** Hangs a stretch of track off the hull under gravity. */
+    public static void applyWeight(BntBeltWeight weight, Level level, double timeStep) {
+        if (weight.carrier == null || weight.mass <= 0.0) {
+            return;
+        }
+
+        Vector3d gravity = DimensionPhysicsData.getGravity(level);
+        if (gravity == null || gravity.lengthSquared() < 1.0E-12) {
+            return;
+        }
+
+        Vec3 worldImpulse = new Vec3(gravity.x, gravity.y, gravity.z).scale(weight.mass * timeStep);
+        Vec3 localImpulse = weight.subLevel.logicalPose().transformNormalInverse(worldImpulse);
+
+        ForceTotal forceTotal = weight.carrier.bnt$getForceTotal();
+        forceTotal.applyImpulseAtPoint(
+            weight.subLevel, weight.forcePoint,
+            new Vector3d(localImpulse.x, localImpulse.y, localImpulse.z));
+        weight.carrier.bnt$markQueuedForForceApplication();
     }
 
     private static BlockPos controllerPos(KineticBlockEntity wheel) {

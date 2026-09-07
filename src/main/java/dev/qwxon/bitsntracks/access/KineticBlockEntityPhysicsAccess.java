@@ -67,4 +67,14 @@ public interface KineticBlockEntityPhysicsAccess {
     float bnt$getBeltTension();
 
     void bnt$setBeltTension(float var1);
+
+    int bnt$getBeltLinks();
+
+    void bnt$setBeltLinks(int var1);
+
+    long bnt$getBeltHoldTick();
+
+    double bnt$getBeltHold();
+
+    void bnt$setBeltHold(long var1, double var3);
 }

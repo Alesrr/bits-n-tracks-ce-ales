@@ -570,7 +570,8 @@ public final class BntBeltSolver {
         return new double[]{currentSide == nextSide ? 0.0 : 1.0, angle * radii[current] + outgoing[0]};
     }
 
-    private static double beltLength(double[] xs, double[] ys, double[] radii, int[] sides) {
+    /** Taut path length once round the loop, runs plus wraps. */
+    public static double beltLength(double[] xs, double[] ys, double[] radii, int[] sides) {
         int count = xs.length;
         double total = 0.0;
         double[][] runs = new double[count][];

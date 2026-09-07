@@ -5,15 +5,17 @@ import com.kipti.bnb.content.kinetics.cogwheel_chain.graph.PathedCogwheelNode;
 import com.kipti.bnb.content.kinetics.cogwheel_chain.graph.RenderedChainPathNode;
 import dev.qwxon.bitsntracks.access.BntRunShapeNode;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltDrape;
+import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltLinks;
+import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltSlack;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltTension;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntChainGeometry;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntChainMotion;
-import dev.qwxon.bitsntracks.physics.BntPhysicsTuning;
 import java.util.ArrayList;
 import java.util.List;
 import net.createmod.catnip.data.Pair;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Direction.AxisDirection;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -74,6 +76,11 @@ public class CogwheelChainGeometryBuilderMixin {
             offsetsAtNodes.set(i, Pair.of(offsets.getSecond(), offsets.getSecond()));
         }
 
+        double[] slack = bnt$slackPerRun(nodes, offsetsAtNodes);
+        double travelled = 0.0;
+        int walked = 0;
+        Vec3 previous = null;
+
         for (int i = 0; i < n; i++) {
             PathedCogwheelNode previousNode = nodes.get((n + i - 1) % n);
             PathedCogwheelNode currentNode = nodes.get(i);
@@ -97,8 +104,15 @@ public class CogwheelChainGeometryBuilderMixin {
             Vec3 runEnd = BntChainMotion.liveCenter(nextNode).add(nextOffsets.getFirst());
             int skipped = bnt$passThroughSkippedNodes(resultNodes, pathNodes, present, emitted,
                 listIndex[i], listIndex[(i + 1) % n], runStart, runEnd);
+            for (; walked < resultNodes.size(); walked++) {
+                Vec3 point = resultNodes.get(walked).getPosition();
+                if (previous != null) {
+                    travelled += previous.distanceTo(point);
+                }
+                previous = point;
+            }
             if (skipped == 0) {
-                bnt$emitSag(resultNodes, currentNode, nextNode, runStart, runEnd);
+                bnt$emitSag(resultNodes, currentNode, nextNode, runStart, runEnd, slack[i], travelled);
             }
         }
 
@@ -179,10 +193,29 @@ public class CogwheelChainGeometryBuilderMixin {
         return count;
     }
 
+    /** Surplus length each run carries, once the tight side has given up its share. */
+    private static double[] bnt$slackPerRun(List<PathedCogwheelNode> nodes, List<Pair<Vec3, Vec3>> offsetsAtNodes) {
+        int n = nodes.size();
+        double[] runLengths = new double[n];
+        for (int i = 0; i < n; i++) {
+            int next = (i + 1) % n;
+            Vec3 start = BntChainMotion.liveCenter(nodes.get(i)).add(offsetsAtNodes.get(i).getSecond());
+            Vec3 end = BntChainMotion.liveCenter(nodes.get(next)).add(offsetsAtNodes.get(next).getFirst());
+            runLengths[i] = start.distanceTo(end);
+        }
+
+        int links = BntBeltLinks.contextOrEstimate(nodes);
+        float tension = BntBeltTension.contextTension();
+        double surplus = BntBeltLinks.surplus(
+            links, tension, BntBeltLinks.tautLength(nodes), BntBeltLinks.liveTautLength(nodes));
+        float speed = BntBeltSlack.contextSpeed();
+        return BntBeltSlack.distribute(runLengths, surplus, BntBeltSlack.tightRun(nodes, speed), speed);
+    }
+
     /** Adds the points that shape a run. */
     private static void bnt$emitSag(
         List<RenderedChainPathNode> resultNodes, PathedCogwheelNode owner, PathedCogwheelNode next,
-        Vec3 runStart, Vec3 runEnd
+        Vec3 runStart, Vec3 runEnd, double surplus, double travelled
     ) {
         if (owner.localPos().equals(next.localPos()) || !BntBeltDrape.canShapeRuns()) {
             return;
@@ -190,22 +223,41 @@ public class CogwheelChainGeometryBuilderMixin {
 
         Vec3 along = runEnd.subtract(runStart);
         double span = along.length();
-        float tension = BntBeltTension.contextTension();
-        double sag = BntBeltTension.sagDepth(span, tension);
+        double sag = BntBeltTension.sagFromSurplus(span, surplus);
         double restOffset = (BntBeltDrape.restOffset(owner) + BntBeltDrape.restOffset(next)) * 0.5;
         int probes = BntBeltDrape.probeCount(Math.sqrt(owner.localPos().distSqr(next.localPos())));
         boolean underside = (runStart.y + runEnd.y) * 0.5
             <= (BntChainMotion.liveCenter(owner).y + BntChainMotion.liveCenter(next).y) * 0.5;
-        double[] offsets = BntBeltDrape.profile(runStart, along, probes, sag, tension, restOffset, underside);
+        double[] offsets = BntBeltDrape.profile(runStart, along, probes, sag, restOffset, underside);
 
         Vec3 base = BntChainMotion.liveCenter(owner).add(BntBeltDrape.seamOffset(owner));
+        double pitch = BntBeltLinks.pitch();
+        double reached = 0.0;
         for (int probe = 1; probe < probes; probe++) {
-            Vec3 point = runStart.add(along.scale((double)probe / probes)).add(0.0, offsets[probe], 0.0);
+            double even = (double)probe / probes;
+            double at = bnt$onLinkBoundary(travelled, span, even, pitch, reached);
+            reached = at;
+
+            double sampled = at * probes;
+            int lower = Mth.clamp((int)Math.floor(sampled), 0, probes);
+            int upper = Math.min(lower + 1, probes);
+            double lift = Mth.lerp(sampled - lower, offsets[lower], offsets[upper]);
+
+            Vec3 point = runStart.add(along.scale(at)).add(0.0, lift, 0.0);
             RenderedChainPathNode shapePoint = new RenderedChainPathNode(
                 owner.localPos(), point.subtract(base), owner.rotationAxisVec());
             ((BntRunShapeNode)(Object)shapePoint).bnt$markRunShape();
             resultNodes.add(shapePoint);
         }
+    }
+
+    /** Nearest link joint to an evenly spaced point, or the even point when that would not fit. */
+    private static double bnt$onLinkBoundary(double travelled, double span, double even, double pitch, double reached) {
+        if (pitch <= 0.0 || span <= 1.0E-6) {
+            return even;
+        }
+        double snapped = (Math.round((travelled + span * even) / pitch) * pitch - travelled) / span;
+        return snapped > reached && snapped < 1.0 ? snapped : even;
     }
 
     private static Vec3 bnt$axisVector(PathedCogwheelNode node) {

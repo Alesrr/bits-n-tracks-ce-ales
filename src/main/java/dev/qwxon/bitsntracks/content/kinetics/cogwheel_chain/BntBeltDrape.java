@@ -32,8 +32,7 @@ public final class BntBeltDrape {
     }
 
     public static boolean canShapeRuns() {
-        return BntPhysicsTuning.isBeltDrapeEnabled()
-            || (BntPhysicsTuning.getBeltSagFraction() > 0.0 && BntPhysicsTuning.getBeltMaxSag() > 0.0);
+        return BntPhysicsTuning.isBeltDrapeEnabled() || BntPhysicsTuning.getBeltMaxSag() > 0.0;
     }
 
     /** Point count for a run, from beltNodeSpacing, clamped to 2 up to 64. */
@@ -66,7 +65,7 @@ public final class BntBeltDrape {
 
     /** Run height against the straight line between its wheels, per sample. */
     public static double[] profile(
-        Vec3 runStart, Vec3 along, int probes, double sag, float tension, double restOffset, boolean underside
+        Vec3 runStart, Vec3 along, int probes, double sag, double restOffset, boolean underside
     ) {
         double[] ground = new double[probes + 1];
         Arrays.fill(ground, NO_SURFACE);
@@ -96,12 +95,10 @@ public final class BntBeltDrape {
         anchored[probes] = 0.0;
         double[] taut = upperHull(anchored);
 
-        double blend = BntBeltTension.clamp(tension);
         double[] offsets = new double[probes + 1];
         for (int probe = 1; probe < probes; probe++) {
             double hanging = taut[probe] - BntBeltTension.droopAt((double)probe / probes, sag);
-            double slack = Math.max(hanging, ground[probe]);
-            offsets[probe] = Mth.lerp(blend, slack, taut[probe]);
+            offsets[probe] = Math.max(hanging, ground[probe]);
         }
         return offsets;
     }

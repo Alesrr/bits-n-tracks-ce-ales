@@ -92,7 +92,7 @@ public final class BntPhysicsEvents {
         for (Map.Entry<ServerSubLevel, List<KineticBlockEntity>> entry : wheelsByBody.entrySet()) {
             ServerSubLevel subLevel = entry.getKey();
             List<BntPhysicsEvents.WheelContact> nearGround = contactsByBody.getOrDefault(subLevel, List.of());
-            List<BntBeltContacts.BntBeltContact> belt = BntBeltContacts.build(subLevel, entry.getValue(), level);
+            BntBeltContacts.BntBeltLoads belt = BntBeltContacts.build(subLevel, entry.getValue(), level);
 
             List<BntPhysicsEvents.WheelContact> loaded = new ArrayList<>(nearGround.size());
             for (BntPhysicsEvents.WheelContact contact : nearGround) {
@@ -111,9 +111,13 @@ public final class BntPhysicsEvents {
 
             if (!belt.isEmpty()) {
                 KineticBlockEntityPhysicsAccess carrier = (KineticBlockEntityPhysicsAccess)entry.getValue().get(0);
-                for (BntBeltContacts.BntBeltContact contact : belt) {
+                for (BntBeltContacts.BntBeltContact contact : belt.contacts()) {
                     BntBeltContacts.assignCarrier(contact, carrier);
-                    BntBeltContacts.apply(contact, belt.size(), timeStep);
+                    BntBeltContacts.apply(contact, belt.contacts().size(), timeStep);
+                }
+                for (BntBeltContacts.BntBeltWeight weight : belt.weights()) {
+                    BntBeltContacts.assignCarrier(weight, carrier);
+                    BntBeltContacts.applyWeight(weight, level, timeStep);
                 }
             }
         }
@@ -164,7 +168,25 @@ public final class BntPhysicsEvents {
         }
     }
 
+    /** Drop the chain is shaped by, raw terrain only. */
     public static double getClientRenderExtension(KineticBlockEntity kbe, float partialTick) {
+        return getRawRenderExtension(kbe, partialTick);
+    }
+
+    /** Drop a wheel is drawn at, less what the belt holds it up by. */
+    public static double getHeldRenderExtension(KineticBlockEntity kbe, float partialTick) {
+        Level level = kbe.getLevel();
+        double drop = level != null
+            && level.isClientSide
+            && kbe instanceof KineticBlockEntityPhysicsAccess mixin
+            && mixin.bnt$isPhysicsEnabled()
+            ? mixin.bnt$getLerpedExtension(partialTick)
+            : getRawRenderExtension(kbe, partialTick);
+        return drop <= 0.0 ? drop : Math.max(0.0, drop - BntBeltHold.at(level, kbe));
+    }
+
+    /** Drop terrain alone puts a wheel at, before the belt has a say. */
+    public static double getRawRenderExtension(KineticBlockEntity kbe, float partialTick) {
         if (kbe instanceof KineticBlockEntityPhysicsAccess mixin && mixin.bnt$isPhysicsEnabled()) {
             Level level = kbe.getLevel();
             if (level != null && level.isClientSide) {
@@ -246,9 +268,9 @@ public final class BntPhysicsEvents {
             touchingFriction = fudgeFriction(PhysicsBlockPropertyHelper.getFriction(kbe.getLevel().getBlockState(extResult.minInteractingBlock)));
         }
 
-        mixin.bnt$setExtension(maxExtension);
+        mixin.bnt$setExtension(Mth.clamp(maxExtension - wheelRadius, -suspensionRest * 3.0, suspensionRest));
 
-        double distance = suspensionRest / 6.0 + maxExtension;
+        double distance = suspensionRest / 6.0 + maxExtension + BntBeltHold.at(kbe.getLevel(), kbe);
         double springLength = Mth.clamp(distance - wheelRadius, -suspensionRest * 2.0, suspensionRest);
         CogwheelChainBehaviour behaviour = (CogwheelChainBehaviour)kbe.getBehaviour(CogwheelChainBehaviour.TYPE);
         boolean isConnected = behaviour != null && behaviour.isPartOfChain();

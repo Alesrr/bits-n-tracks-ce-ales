@@ -73,7 +73,7 @@ public class BntClientCompat {
             }
 
             float partialTick = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(true);
-            displacement = displacement.add(0.0, -getVisualDrop(nodeBe, partialTick), 0.0);
+            displacement = displacement.add(0.0, -HiddenCogwheelCompat.getHeldVisualDrop(nodeBe, partialTick), 0.0);
         }
 
         return displacement;
