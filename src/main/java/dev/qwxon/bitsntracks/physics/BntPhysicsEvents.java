@@ -175,8 +175,14 @@ public final class BntPhysicsEvents {
 
     /** Drop a wheel is drawn at, less what the belt holds it up by. */
     public static double getHeldRenderExtension(KineticBlockEntity kbe, float partialTick) {
-        double raw = getRawRenderExtension(kbe, partialTick);
-        return raw <= 0.0 ? raw : Math.max(0.0, raw - BntBeltHold.at(kbe.getLevel(), kbe));
+        Level level = kbe.getLevel();
+        double drop = level != null
+            && level.isClientSide
+            && kbe instanceof KineticBlockEntityPhysicsAccess mixin
+            && mixin.bnt$isPhysicsEnabled()
+            ? mixin.bnt$getLerpedExtension(partialTick)
+            : getRawRenderExtension(kbe, partialTick);
+        return drop <= 0.0 ? drop : Math.max(0.0, drop - BntBeltHold.at(level, kbe));
     }
 
     /** Drop terrain alone puts a wheel at, before the belt has a say. */
@@ -262,7 +268,7 @@ public final class BntPhysicsEvents {
             touchingFriction = fudgeFriction(PhysicsBlockPropertyHelper.getFriction(kbe.getLevel().getBlockState(extResult.minInteractingBlock)));
         }
 
-        mixin.bnt$setExtension(maxExtension);
+        mixin.bnt$setExtension(Mth.clamp(maxExtension - wheelRadius, -suspensionRest * 3.0, suspensionRest));
 
         double distance = suspensionRest / 6.0 + maxExtension + BntBeltHold.at(kbe.getLevel(), kbe);
         double springLength = Mth.clamp(distance - wheelRadius, -suspensionRest * 2.0, suspensionRest);
