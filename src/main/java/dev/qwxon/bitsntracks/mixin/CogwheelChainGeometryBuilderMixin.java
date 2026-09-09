@@ -206,8 +206,7 @@ public class CogwheelChainGeometryBuilderMixin {
 
         int links = BntBeltLinks.contextOrEstimate(nodes);
         float tension = BntBeltTension.contextTension();
-        double surplus = BntBeltLinks.surplus(
-            links, tension, BntBeltLinks.tautLength(nodes), BntBeltLinks.liveTautLength(nodes));
+        double surplus = BntBeltLinks.surplus(links, tension, BntBeltLinks.liveTautLength(nodes));
         float speed = BntBeltSlack.contextSpeed();
         return BntBeltSlack.distribute(runLengths, surplus, BntBeltSlack.tightRun(nodes, speed), speed);
     }

@@ -52,6 +52,7 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
     @Unique
     private BntChainGeometry.Layout bnt$latched;
 
+    /** Set while one fault is still standing, so a repair runs once for it and not every lazy tick. */
     @Unique
     private boolean bnt$repairAttempted;
 
@@ -194,10 +195,6 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
             return;
         }
 
-        if (this.bnt$repairAttempted) {
-            return;
-        }
-
         boolean[] engaged = BntChainEngagement.engagement(layout, nodes.size());
         boolean changed = this.bnt$sidesPending
             || applied == null
@@ -205,6 +202,11 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
             || BntChainEngagement.hasSeveredDrive(level, controllerPos, nodes, engaged)
             || BntChainEngagement.hasSelfDrive(level, controllerPos, nodes);
         if (!changed && BntChainEngagement.drivesTogether(level, controllerPos, nodes, engaged)) {
+            this.bnt$repairAttempted = false;
+            return;
+        }
+
+        if (this.bnt$repairAttempted) {
             return;
         }
 
