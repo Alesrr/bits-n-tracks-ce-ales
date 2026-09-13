@@ -18,6 +18,7 @@
         "CogwheelChainPartialEditInsertionPlannerMixin",
         "PartialEditCogwheelChainPacketMixin",
         "RotationPropagatorMixin",
+        "GeneratingKineticBlockEntityMixin",
         "PathedCogwheelNodeMixin",
         "RenderedChainPathNodeMixin",
         "BntCreativeModeTabMixin",

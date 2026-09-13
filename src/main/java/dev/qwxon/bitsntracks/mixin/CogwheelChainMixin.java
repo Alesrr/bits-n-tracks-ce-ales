@@ -10,6 +10,7 @@ import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntChainEngagement;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntBeltTension;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntChainGeometry;
 import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntChainMotion;
+import dev.qwxon.bitsntracks.physics.BntPhysicsTuning;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -17,6 +18,8 @@ import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -29,6 +32,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
     remap = false
 )
 public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
+    @Unique
+    private static final Logger BNT$LOG = LoggerFactory.getLogger("bits_n_tracks");
+
     @Shadow
     private List<PathedCogwheelNode> cogwheelNodes;
 
@@ -196,11 +202,16 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
         }
 
         boolean[] engaged = BntChainEngagement.engagement(layout, nodes.size());
+        boolean selfDrive = BntChainEngagement.hasSelfDrive(level, controllerPos, nodes);
         boolean changed = this.bnt$sidesPending
             || applied == null
             || !Arrays.equals(applied, engaged)
             || BntChainEngagement.hasSeveredDrive(level, controllerPos, nodes, engaged)
-            || BntChainEngagement.hasSelfDrive(level, controllerPos, nodes);
+            || selfDrive;
+        if (BntPhysicsTuning.isBeltDebugLogging() && level.getGameTime() % 20L == 0L) {
+            BNT$LOG.info("chain {} self={} changed={} repaired={}{}", controllerPos, selfDrive, changed,
+                this.bnt$repairAttempted, BntChainEngagement.report(level, controllerPos, nodes));
+        }
         if (!changed && BntChainEngagement.drivesTogether(level, controllerPos, nodes, engaged)) {
             this.bnt$repairAttempted = false;
             return;
@@ -211,12 +222,11 @@ public abstract class CogwheelChainMixin implements BntChainGeometryRefresh {
         }
 
         this.bnt$repairAttempted = true;
-        Set<BlockPos> positions = BntChainEngagement.positionsOf(controllerPos, nodes);
-        BntChainEngagement.detach(level, positions);
+        Set<BlockPos> stopped = BntChainEngagement.detach(level, BntChainEngagement.positionsOf(controllerPos, nodes));
         this.bnt$sidesPending = false;
         this.bnt$adoptSides(nodes, layout.sides());
         this.bnt$appliedLayout = layout;
-        BntChainEngagement.restore(level, positions);
+        BntChainEngagement.restore(level, stopped);
     }
 
     /** The engagement the kinetic network was actually built with, which is what a stale speed belongs to. */

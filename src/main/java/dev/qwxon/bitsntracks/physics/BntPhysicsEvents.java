@@ -4,6 +4,7 @@ import com.kipti.bnb.content.kinetics.cogwheel_chain.behaviour.CogwheelChainBeha
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import dev.qwxon.bitsntracks.access.KineticBlockEntityPhysicsAccess;
 import dev.qwxon.bitsntracks.content.BntCogwheelPairing;
+import dev.qwxon.bitsntracks.content.kinetics.cogwheel_chain.BntChainEngagement;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.api.math.OrientedBoundingBox3d;
 import dev.ryanhcode.sable.api.physics.force.ForceTotal;
@@ -84,6 +85,10 @@ public final class BntPhysicsEvents {
             } else {
                 KineticBlockEntityPhysicsAccess mixin = (KineticBlockEntityPhysicsAccess)kbe;
                 if (mixin.bnt$isPhysicsEnabled() && Sable.HELPER.getContaining(kbe) instanceof ServerSubLevel subLevel && !subLevel.isRemoved()) {
+                    if (level.getGameTime() % 20L == 0L) {
+                        BntChainEngagement.clearPhantomDrive(level, kbe);
+                    }
+
                     wheelsByBody.computeIfAbsent(subLevel, ignored -> new ArrayList<>()).add(kbe);
                     BntPhysicsEvents.WheelContact contact = resolveContact(kbe, mixin, subLevel);
                     if (contact != null) {
