@@ -87,6 +87,7 @@ public final class BntTrackFloor {
         double[] xs = new double[count];
         double[] ys = new double[count];
         double[] radii = new double[count];
+        double[] heights = new double[count];
         int[] sides = new int[count];
         boolean[] powered = new boolean[count];
         double averageY = 0.0;
@@ -101,6 +102,7 @@ public final class BntTrackFloor {
             sides[i] = node.side();
             powered[i] = level.getBlockEntity(controllerPos.offset(node.localPos()))
                 instanceof KineticBlockEntityPhysicsAccess access && access.bnt$isPhysicsEnabled();
+            heights[i] = centre.y;
             averageY += centre.y;
         }
         averageY /= count;
@@ -116,7 +118,8 @@ public final class BntTrackFloor {
         for (int i = 0; i < count; i++) {
             int previous = (i - 1 + count) % count;
             int next = (i + 1) % count;
-            if (!powered[i] || seats[i].y > averageY || previous == next || previous == i || next == i) {
+            if (!powered[i] || previous == next || previous == i || next == i
+                || heights[i] > averageY + FLAT || heights[previous] > averageY + FLAT || heights[next] > averageY + FLAT) {
                 continue;
             }
 
